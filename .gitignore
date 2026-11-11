@@ -10,6 +10,7 @@ venv/
 
 data/raw/
 data/processed/
+data/cz_vw/
 data/sp500/
 checkpoints/
 

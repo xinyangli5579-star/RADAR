@@ -66,7 +66,9 @@ def run_epoch(model, loader, cfg: Config, optimizer=None) -> float:
     return total / max(n, 1)
 
 
-def train_window(k: int, window, data, cfg: Config, run_dir: str) -> dict:
+def train_window(k: int, window, data, cfg: Config, run_dir: str, *,
+                 dataset_cls=CrossSectionalDataset, history_fn=stock_histories,
+                 bank_max_tokens: int = 65536) -> dict:
     """Train one rolling window with early stopping on the validation loss and save the best model."""
     set_seed(cfg.seed)
     train_start, train_end, test_start, test_end = window
@@ -75,13 +77,13 @@ def train_window(k: int, window, data, cfg: Config, run_dir: str) -> dict:
     print(f"\n[window {k}] train {dates[train_start]} ~ {dates[train_end - 1]} | "
           f"test {dates[test_start]} ~ {dates[test_end - 1]}")
 
-    train_loader = make_loader(CrossSectionalDataset(data, train_start, val_start, cfg), cfg, shuffle=True)
-    val_loader = make_loader(CrossSectionalDataset(data, val_start, train_end, cfg), cfg, shuffle=False)
+    train_loader = make_loader(dataset_cls(data, train_start, val_start, cfg), cfg, shuffle=True)
+    val_loader = make_loader(dataset_cls(data, val_start, train_end, cfg), cfg, shuffle=False)
 
     model = RADAR(cfg).to(cfg.device)
-    history = stock_histories(data, train_start, train_end, cfg.news_dim) if model.uses_bank else None
+    history = history_fn(data, train_start, train_end, cfg.news_dim) if model.uses_bank else None
     if history is not None:
-        model.build_context_bank(*history, start_idx=train_start)
+        model.build_context_bank(*history, start_idx=train_start, max_tokens=bank_max_tokens)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.epochs)
@@ -90,7 +92,7 @@ def train_window(k: int, window, data, cfg: Config, run_dir: str) -> dict:
     for epoch in range(1, cfg.epochs + 1):
         if history is not None and cfg.bank_refresh_freq > 0 and epoch > 1 \
                 and (epoch - 1) % cfg.bank_refresh_freq == 0:
-            model.build_context_bank(*history, start_idx=train_start)
+            model.build_context_bank(*history, start_idx=train_start, max_tokens=bank_max_tokens)
         train_loss = run_epoch(model, train_loader, cfg, optimizer)
         val_loss = run_epoch(model, val_loader, cfg)
         scheduler.step()

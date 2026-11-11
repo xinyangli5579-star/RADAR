@@ -1,0 +1,4 @@
+-r ../../requirements.txt
+pyarrow>=14
+statsmodels>=0.14.6
+pytest>=8
