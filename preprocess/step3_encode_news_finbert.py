@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from preprocess.common import ensure_dir, iter_news_rows, iter_news_rows_long_format, load_universe, parse_date
 
 
-def main() -> None:
+def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--news_csv", default="data/raw/All_external.csv")
     ap.add_argument("--news_format", choices=["wide", "long"], default="long")
@@ -34,7 +34,7 @@ def main() -> None:
     ap.add_argument("--shard_size_cells", type=int, default=0,
                     help="write a shard every N encoded cells (0 = single file); merge shards with step 4")
     ap.add_argument("--shard_prefix", default="news_finbert_sparse")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     ensure_dir(args.out_dir)
     tickers = load_universe(args.universe)
